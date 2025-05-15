@@ -140,7 +140,7 @@ void setup() {
 void loop() {
 #if ENABLE_MAGNETIC_SENSOR
 
-  // 记录上一个磁场Z值和稳定时间
+  // Record the last magnetic field Z value and stabilization time
   static double lastZ = 0;
   static unsigned long stableStart = 0;
   const double zThreshold = 0.2; // Magnetic field variations less than this value are considered stable
