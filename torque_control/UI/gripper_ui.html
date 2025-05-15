@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Adaptive Gripper Control UI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      margin: 10px;
+      padding: 12px 20px;
+      font-size: 16px;
+    }
+    #data {
+      font-family: monospace;
+      font-size: 18px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Adaptive Gripper Web UI</h1>
+  <button id="connect">🔌 Connect Serial</button><br/>
+  <button onclick="sendCommand('T-3')">🤏 Close Gripper</button>
+  <button onclick="sendCommand('T3')">👐 Open Gripper</button>
+  <button onclick="sendCommand('T0')">✋ Stop Gripper</button>
+
+  <div id="data">Waiting for serial data...</div>
+
+  <script>
+    let port;
+    let reader;
+    let outputStream;
+
+    document.getElementById("connect").addEventListener("click", async () => {
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        const decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable);
+        reader = decoder.readable.getReader();
+
+        const encoder = new TextEncoderStream();
+        outputStream = encoder.writable;
+        encoder.readable.pipeTo(port.writable);
+
+        readLoop();
+      } catch (err) {
+        alert("Serial connection failed: " + err);
+      }
+    });
+
+    async function readLoop() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            document.getElementById("data").textContent = value.trim();
+          }
+        }
+      } catch (err) {
+        console.error("Read error:", err);
+      }
+    }
+
+    async function sendCommand(cmd) {
+      if (!outputStream) {
+        alert("Please connect to serial first.");
+        return;
+      }
+      const writer = outputStream.getWriter();
+      await writer.write(cmd + "\n");
+      writer.releaseLock();
+    }
+  </script>
+</body>
+</html>

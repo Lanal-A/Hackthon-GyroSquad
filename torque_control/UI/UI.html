@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Adaptive Gripper Control UI</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      color: #333;
+    }
+    button {
+      margin: 10px;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #angle, #status {
+      font-family: monospace;
+      font-size: 18px;
+      margin-top: 15px;
+      color: #444;
+    }
+    #angle {
+      color: #007700;
+    }
+  </style>
+</head>
+<body>
+  <h1>Adaptive Gripper Web UI</h1>
+  <button id="connect">🔌 Connect Serial</button><br/>
+  <button onclick="sendCommand('CLOSE')">🤏 Close Gripper</button>
+  <button onclick="sendCommand('OPEN')">👐 Open Gripper</button>
+  <button onclick="sendCommand('STOP')">✋ Stop Gripper</button>
+
+  <div id="status">Status: Waiting for serial data...</div>
+  <div id="angle">Angle: --</div>
+
+  <script>
+    let port;
+    let reader;
+    let outputStream;
+
+    document.getElementById("connect").addEventListener("click", async () => {
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        const decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable);
+        reader = decoder.readable.getReader();
+
+        const encoder = new TextEncoderStream();
+        outputStream = encoder.writable;
+        encoder.readable.pipeTo(port.writable);
+
+        readLoop();
+        document.getElementById("status").textContent = "Status: ✅ Connected to serial.";
+      } catch (err) {
+        alert("Serial connection failed: " + err);
+        document.getElementById("status").textContent = "Status: ❌ Connection failed.";
+      }
+    });
+
+    async function readLoop() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            const text = value.trim();
+            if (text.toLowerCase().includes("angle")) {
+              document.getElementById("angle").textContent = "Angle: " + text;
+            } else {
+              document.getElementById("status").textContent = "Status: " + text;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Read error:", err);
+        document.getElementById("status").textContent = "Status: ⚠️ Read error.";
+      }
+    }
+
+    async function sendCommand(cmd) {
+      if (!outputStream) {
+        alert("Please connect to serial first.");
+        return;
+      }
+      const writer = outputStream.getWriter();
+      await writer.write(cmd + "\\n");
+      writer.releaseLock();
+      document.getElementById("status").textContent = `Status: Sent "${cmd}"`;
+    }
+  </script>
+</body>
+</html>
